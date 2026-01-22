@@ -2,8 +2,6 @@ import streamlit as st
 import os
 import subprocess
 from tempfile import NamedTemporaryFile
-from gtts import gTTS
-from io import BytesIO
 from deep_translator import GoogleTranslator
 from faster_whisper import WhisperModel
 
@@ -17,10 +15,10 @@ st.set_page_config(
 )
 
 st.title("🧠 AI Notes Translator")
-st.caption("Speech • Notes • Translation • Voice Output")
+st.caption("Speech & Text Translation (Cloud Stable Version)")
 
 # -------------------------------------------------
-# LOAD WHISPER MODEL (CLOUD SAFE)
+# LOAD WHISPER MODEL
 # -------------------------------------------------
 @st.cache_resource
 def load_model():
@@ -46,7 +44,7 @@ LANG_MAP = {
 NAME_TO_CODE = {v: k for k, v in LANG_MAP.items()}
 
 # -------------------------------------------------
-# AUDIO HELPERS (NO soundfile)
+# AUDIO HELPERS
 # -------------------------------------------------
 def convert_audio(in_path: str) -> str:
     out = in_path.rsplit(".", 1)[0] + "_clean.wav"
@@ -59,33 +57,28 @@ def convert_audio(in_path: str) -> str:
 
 def is_audio_valid(path: str) -> bool:
     try:
-        # simple size check (~0.5 sec audio)
         return os.path.getsize(path) > 10_000
     except Exception:
         return False
 
 # -------------------------------------------------
-# TRANSLATION (PYTHON 3.13 SAFE)
+# TRANSLATION
 # -------------------------------------------------
 def translate_via_english(text: str, src: str, tgt: str) -> str:
     if not text.strip():
         return ""
-
-    try:
-        if src != "en":
-            text = GoogleTranslator(source=src, target="en").translate(text)
-        if tgt != "en":
-            text = GoogleTranslator(source="en", target=tgt).translate(text)
-        return text.strip()
-    except Exception:
-        return ""
+    if src != "en":
+        text = GoogleTranslator(source=src, target="en").translate(text)
+    if tgt != "en":
+        text = GoogleTranslator(source="en", target=tgt).translate(text)
+    return text.strip()
 
 # -------------------------------------------------
 # MODE SELECT
 # -------------------------------------------------
 mode = st.radio(
     "Choose Mode",
-    ["🎙 Audio → Translation + Voice", "📄 Text → Translation + Voice"]
+    ["🎙 Audio → Translation", "📄 Text → Translation"]
 )
 
 # =================================================
@@ -115,7 +108,7 @@ if mode.startswith("🎙"):
         clean_path = convert_audio(raw_path)
 
         if not is_audio_valid(clean_path):
-            st.error("❌ Audio too short or silent. Please upload clear speech.")
+            st.error("❌ Audio too short or silent.")
             st.stop()
 
         with st.spinner("🧠 Transcribing..."):
@@ -127,8 +120,8 @@ if mode.startswith("🎙"):
 
         text = " ".join(seg.text for seg in segments)
 
-        st.subheader("📝 Detected Text (Editable)")
-        edited = st.text_area("Edit text before translation", text, height=200)
+        st.subheader("📝 Detected Text")
+        edited = st.text_area("Edit text", text, height=200)
 
         if st.button("🌍 Translate"):
             translated = translate_via_english(
@@ -136,16 +129,8 @@ if mode.startswith("🎙"):
                 src_lang,
                 tgt_lang
             )
-
             st.subheader("🌍 Translation")
             st.write(translated)
-
-            st.subheader("🔊 Voice Output")
-            tts = gTTS(translated, lang=tgt_lang)
-            buf = BytesIO()
-            tts.write_to_fp(buf)
-            buf.seek(0)
-            st.audio(buf)
 
 # =================================================
 # TEXT MODE
@@ -169,13 +154,5 @@ else:
             src_lang,
             tgt_lang
         )
-
         st.subheader("🌍 Translation")
         st.write(translated)
-
-        st.subheader("🔊 Voice Output")
-        tts = gTTS(translated, lang=tgt_lang)
-        buf = BytesIO()
-        tts.write_to_fp(buf)
-        buf.seek(0)
-        st.audio(buf)
