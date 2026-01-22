@@ -1,0 +1,10 @@
+.venv/
+venv/
+ffmpeg-*
+indictrans2/
+*.mp3
+*.wav
+*.ps1
+*.bat
+__pycache__/
+*.txt
